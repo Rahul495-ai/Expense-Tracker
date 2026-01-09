@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Expense Tracker</title>
+
+<!-- React -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+  font-family: "Segoe UI", sans-serif;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  min-height: 100vh;
+  margin: 0;
+  padding: 20px;
+}
+
+.container {
+  max-width: 480px;
+  margin: auto;
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+}
+
+h1 {
+  text-align: center;
+  color: #444;
+}
+
+.balance {
+  text-align: center;
+  font-size: 22px;
+  margin: 15px 0;
+}
+
+.summary {
+  display: flex;
+  justify-content: space-between;
+  margin: 15px 0;
+}
+
+.card {
+  width: 48%;
+  padding: 10px;
+  border-radius: 8px;
+  text-align: center;
+  color: white;
+}
+
+.income-card {
+  background: #2ecc71;
+}
+
+.expense-card {
+  background: #e74c3c;
+}
+
+input, select, button {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+button {
+  background: #667eea;
+  color: white;
+  border: none;
+  font-weight: bold;
+}
+
+button:hover {
+  background: #5a67d8;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 6px;
+  background: #f4f4f4;
+  border-left: 6px solid;
+}
+
+.plus {
+  border-color: #2ecc71;
+}
+
+.minus {
+  border-color: #e74c3c;
+}
+
+small {
+  color: gray;
+}
+
+canvas {
+  margin-top: 20px;
+}
+</style>
+</head>
+
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+function App() {
+  const [transactions, setTransactions] = useState(() => {
+    const saved = localStorage.getItem("transactions");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("All");
+
+  const chartRef = useRef(null);
+  const chartInstance = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem("transactions", JSON.stringify(transactions));
+    updateChart();
+  }, [transactions]);
+
+  const addTransaction = (e) => {
+    e.preventDefault();
+    const text = e.target.text.value;
+    const amount = Number(e.target.amount.value);
+    const category = e.target.category.value;
+
+    if (!text || !amount) return;
+
+    setTransactions([
+      {
+        id: Date.now(),
+        text,
+        amount,
+        category,
+        date: new Date().toLocaleDateString()
+      },
+      ...transactions
+    ]);
+
+    e.target.reset();
+  };
+
+  const deleteTransaction = (id) => {
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  const filtered = transactions.filter(t =>
+    t.text.toLowerCase().includes(search.toLowerCase()) &&
+    (filter === "All" || t.category === filter)
+  );
+
+  const income = transactions.filter(t => t.amount > 0).reduce((a,b)=>a+b.amount,0);
+  const expense = transactions.filter(t => t.amount < 0).reduce((a,b)=>a+b.amount,0);
+  const balance = income + expense;
+
+  const updateChart = () => {
+    if (!chartRef.current) return;
+    if (chartInstance.current) chartInstance.current.destroy();
+
+    chartInstance.current = new Chart(chartRef.current, {
+      type: "doughnut",
+      data: {
+        labels: ["Income", "Expense"],
+        datasets: [{
+          data: [income, Math.abs(expense)],
+          backgroundColor: ["#2ecc71", "#e74c3c"]
+        }]
+      }
+    });
+  };
+
+  return (
+    <div className="container">
+      <h1>Expense Tracker</h1>
+
+      <div className="balance">Balance: ₹{balance}</div>
+
+      <div className="summary">
+        <div className="card income-card">
+          <h4>Income</h4>
+          ₹{income}
+        </div>
+        <div className="card expense-card">
+          <h4>Expense</h4>
+          ₹{Math.abs(expense)}
+        </div>
+      </div>
+
+      <form onSubmit={addTransaction}>
+        <input name="text" placeholder="Description" />
+        <input name="amount" type="number" placeholder="Amount (negative = expense)" />
+        <select name="category">
+          <option>Food</option>
+          <option>Travel</option>
+          <option>Bills</option>
+          <option>Shopping</option>
+          <option>Salary</option>
+          <option>Other</option>
+        </select>
+        <button>Add Transaction</button>
+      </form>
+
+      <input placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)} />
+      <select onChange={e=>setFilter(e.target.value)}>
+        <option>All</option>
+        <option>Food</option>
+        <option>Travel</option>
+        <option>Bills</option>
+        <option>Shopping</option>
+        <option>Salary</option>
+        <option>Other</option>
+      </select>
+
+      <ul>
+        {filtered.map(t => (
+          <li key={t.id} className={t.amount < 0 ? "minus" : "plus"}>
+            <div>
+              <strong>{t.text}</strong><br />
+              <small>{t.category} | {t.date}</small>
+            </div>
+            <div>
+              ₹{Math.abs(t.amount)}
+              <button onClick={()=>deleteTransaction(t.id)}> ❌</button>
+            </div>
+          </li>
+        ))}
+      </ul>
+
+      <canvas ref={chartRef}></canvas>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
