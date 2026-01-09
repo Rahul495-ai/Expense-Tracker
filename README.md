@@ -52,3 +52,6 @@ This project is completely **frontend-only**, uses **browser localStorage** for 
 
 ## 📁 Project Structure
 
+Expense-Tracker/
+├── expense-tracker.html
+└── README.md
